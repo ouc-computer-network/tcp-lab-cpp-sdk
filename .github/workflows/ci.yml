@@ -12,6 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        mode: [debug, release]
     defaults:
       run:
         shell: bash
@@ -27,7 +28,7 @@ jobs:
       - name: Build C++ shared libraries
         run: |
           set -euo pipefail
-          xmake f -m release
+          xmake f -m ${{ matrix.mode }}
           xmake
 
       - name: Locate shared libraries
@@ -52,7 +53,7 @@ jobs:
 
       - name: Build tcp-lab-cli
         working-directory: tcp-lab
-        run: cargo build -p tcp-lab-cli
+        run: cargo build -p tcp-lab-cli ${{ matrix.mode == 'release' && '--release' || '' }}
 
       - name: Run tcp-lab-cli with shared libraries
         working-directory: tcp-lab
@@ -61,7 +62,7 @@ jobs:
           RECEIVER_REL: ../${{ steps.libs.outputs.receiver }}
         run: |
           set -euo pipefail
-          cargo run -p tcp-lab-cli -- \
+          cargo run -p tcp-lab-cli ${{ matrix.mode == 'release' && '--release' || '' }} -- \
             --test-scenario tests/test_rdt3.toml \
             --cpp-sender-lib "$SENDER_REL" \
             --cpp-receiver-lib "$RECEIVER_REL"
