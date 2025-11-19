@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+
+      - name: Build C++ shared libraries
+        run: |
+          set -euo pipefail
+          xmake f -m release
+          xmake
+
+      - name: Locate shared libraries
+        id: libs
+        run: |
+          set -euo pipefail
+          sender=$(find build -type f \( -name 'libsender.*' -o -name 'sender.dll' \) | head -n 1)
+          receiver=$(find build -type f \( -name 'libreceiver.*' -o -name 'receiver.dll' \) | head -n 1)
+          if [ -z "$sender" ]; then
+            echo "Unable to find sender shared library" >&2
+            exit 1
+          fi
+          if [ -z "$receiver" ]; then
+            echo "Unable to find receiver shared library" >&2
+            exit 1
+          fi
+          echo "sender=$sender" >> "$GITHUB_OUTPUT"
+          echo "receiver=$receiver" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tcp-lab host
+        run: git clone --depth 1 https://github.com/ouc-computer-network/tcp-lab tcp-lab
+
+      - name: Build tcp-lab-cli
+        working-directory: tcp-lab
+        run: cargo build -p tcp-lab-cli
+
+      - name: Run tcp-lab-cli with shared libraries
+        working-directory: tcp-lab
+        env:
+          SENDER_REL: ../${{ steps.libs.outputs.sender }}
+          RECEIVER_REL: ../${{ steps.libs.outputs.receiver }}
+        run: |
+          set -euo pipefail
+          cargo run -p tcp-lab-cli -- \
+            --test-scenario tests/test_rdt3.toml \
+            --cpp-sender-lib "$SENDER_REL" \
+            --cpp-receiver-lib "$RECEIVER_REL"
