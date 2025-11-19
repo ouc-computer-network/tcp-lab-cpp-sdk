@@ -20,7 +20,7 @@ local function add_protocol_target(name, source)
             if is_toolchain("msvc") then
                 add_ldflags("/FORCE:UNRESOLVED", { force = true })
             else
-                add_ldflags("-Wl,--unresolved-symbols=ignore-in-shared-libs", { force = true })
+                add_ldflags("-Wl,--allow-undefined", { force = true })
             end
             if is_mode("debug") then
                 set_optimize("none")
@@ -36,3 +36,4 @@ add_protocol_target("receiver", "src/Receiver.cpp")
 target("demo")
     set_kind("binary")
     add_files("src/main.cpp")
+    
