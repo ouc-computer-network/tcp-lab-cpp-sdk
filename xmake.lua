@@ -15,16 +15,12 @@ local function add_protocol_target(name, source)
         if is_plat("macosx") then
             add_shflags("-undefined dynamic_lookup", { force = true })
         elseif is_plat("linux") then
-            add_shflags("-Wl,--unresolved-symbols=ignore-in-shared-libs", { force = true })
+            add_ldflags("-Wl,--unresolved-symbols=ignore-in-shared-libs", { force = true })
         elseif is_plat("windows") then
-            -- Windows: Allow unresolved external symbols (imported from Rust host at runtime)
-            -- We export our own symbols via __declspec(dllexport) in Export.hpp
             if is_toolchain("msvc") then
-                -- MSVC linker
                 add_ldflags("/FORCE:UNRESOLVED", { force = true })
             else
-                -- MinGW/GCC linker: completely ignore undefined symbols
-                add_shflags("-Wl,--warn-unresolved-symbols", "-Wl,--unresolved-symbols=ignore-in-shared-libs", { force = true })
+                add_ldflags("-Wl,--unresolved-symbols=ignore-in-shared-libs", { force = true })
             end
             if is_mode("debug") then
                 set_optimize("none")
